@@ -28,7 +28,7 @@ public class FileImageTest extends BaseTest {
                 .extract()
                 .response()
                 .jsonPath()
-                .getString("data.deletehash");
+                .getString("data.id");
     }
 
     @AfterEach
@@ -36,7 +36,7 @@ public class FileImageTest extends BaseTest {
         given()
                 .headers("Authorization", token)
                 .when()
-                .delete("https://api.imgur.com/3/account/{username}/image/{deletehash}", username, imageDeleteHash)
+                .delete("https://api.imgur.com/3/account/{username}/image/{id}", username, imageDeleteHash)
                 .prettyPeek()
                 .then()
                 .statusCode(200);

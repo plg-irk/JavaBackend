@@ -26,7 +26,6 @@ public class GetFileImageTest extends BaseTest {
                 .response()
                 .jsonPath()
                 .getString("data.deletehash");
-        System.out.println("imageDeleteHash= " + imageDeleteHash);
     }
 
     @Test

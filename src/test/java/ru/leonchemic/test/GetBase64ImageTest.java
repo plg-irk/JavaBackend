@@ -34,7 +34,7 @@ public class GetBase64ImageTest extends BaseTest {
                 .log()
                 .uri()
                 .when()
-                .get("https://api.imgur.com/3/account/{username}/image/{deletehash}",
+                .get("https://api.imgur.com/3/account/{username}/image/{id}",
                         username, imageDeleteHash)
                 .prettyPeek()
                 .then()
@@ -46,7 +46,7 @@ public class GetBase64ImageTest extends BaseTest {
         given()
                 .headers("Authorization", token)
                 .when()
-                .delete("https://api.imgur.com/3/account/{username}/image/{deleteHash}",
+                .delete("https://api.imgur.com/3/account/{username}/image/{id}",
                         username, imageDeleteHash)
                 .prettyPeek()
                 .then()
@@ -74,7 +74,7 @@ public class GetBase64ImageTest extends BaseTest {
                 .extract()
                 .response()
                 .jsonPath()
-                .getString("data.deletehash");
+                .getString("data.id");
         return imageDeleteHash;
     }
 }
