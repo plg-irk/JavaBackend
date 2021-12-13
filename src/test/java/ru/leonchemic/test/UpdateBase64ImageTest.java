@@ -1,7 +1,13 @@
 package ru.leonchemic.test;
 
+import io.restassured.builder.MultiPartSpecBuilder;
+import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.*;
+import io.restassured.specification.MultiPartSpecification;
+import io.restassured.specification.RequestSpecification;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,62 +18,74 @@ import org.apache.commons.io.FileUtils;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static ru.leonchemic.test.Endpoints.*;
 
 
 public class UpdateBase64ImageTest extends BaseTest {
-    static private final String PATH_TO_FILE = "src/test/resources/main-1920x1080.jpg";
-    static String imageDeleteHash;
+    private final String PATH_TO_FILE = "src/test/resources/main-1920x1080.jpg";
+    String imageID;
     static String encodedFile;
 
-    @BeforeAll
-    static void beforeTest() {
+    MultiPartSpecification fileImage;
+    RequestSpecification requestSpecificationWithFile;
+    Response response;
+
+    @BeforeEach
+    void setup() {
         byte[] byteArray = getFileContent();
         encodedFile = Base64.getEncoder().encodeToString(byteArray);
-        imageDeleteHash = getImageDeleteHash();
+
+        fileImage = new MultiPartSpecBuilder(encodedFile)
+                .controlName("image")
+                .build();
+
+        requestSpecificationWithFile = new RequestSpecBuilder()
+                .addHeader("Authorization", token)
+                .addMultiPart(fileImage)
+                .build();
+
+        response = given(requestSpecificationWithFile, positiveResponseSpecification)
+                .post(UPLOAD_IMAGE)
+                .prettyPeek()
+                .then()
+                .extract()
+                .response();
+
+        imageID = response.jsonPath().getString("data.id");
     }
 
     @Test
-    void updateFileTest() {
-        given()
-                .header("Authorization", token)
-                .param("title", "Lake Baikal")
-                .log()
-                .method()
-                .log()
-                .uri()
-                .expect()
-                .statusCode(200)
-                .when()
-                .post("https://api.imgur.com/3/image/{id}",
-                        imageDeleteHash)
-                .prettyPeek();
+    void updateBase64ImageFileTest() {
+        RequestSpecification requestUpdateFile = new RequestSpecBuilder()
+                .addHeader("Authorization", token)
+                .addMultiPart("title", "Lake Baikal")
+                .build();
+
+        given(requestUpdateFile, positiveResponseSpecification)
+                .post(UPLOAD_IMAGE_ID, imageID)
+                .prettyPeek()
+                .then()
+                .statusCode(200);
+
+        Response res = given(requestSpecificationWithFile, positiveResponseSpecification)
+                .get(UPLOAD_IMAGE_ID, imageID)
+                .prettyPeek()
+                .then()
+                .extract()
+                .response();
+        assertThat(res.jsonPath().getString("data.title"), equalTo("Lake Baikal"));
     }
 
     @AfterEach
-    void getFileTest() {
-        Response response = given()
-                .header("Authorization", token)
-                .when()
-                .get("https://api.imgur.com/3/account/{username}/image/{id}",
-                        username, imageDeleteHash)
-                .prettyPeek();
-        System.out.println(response.jsonPath());
-        assertThat(response.jsonPath().get("data.title"), equalTo("Lake Baikal"));
-    }
-
-    @AfterAll
-    static void tearDown() {
-        given()
-                .headers("Authorization", token)
-                .when()
-                .delete("https://api.imgur.com/3/account/{username}/image/{id}",
-                        username, imageDeleteHash)
+    void teardown() {
+        given(requestSpecificationWithAuth, positiveResponseSpecification)
+                .delete(GET_ACCOUNT + UPLOAD_IMAGE_ID, username, imageID)
                 .prettyPeek()
                 .then()
                 .statusCode(200);
     }
 
-    static private byte[] getFileContent() {
+    private byte[] getFileContent() {
         byte[] byteArray = new byte[0];
         try {
             byteArray = FileUtils.readFileToByteArray(new File(PATH_TO_FILE));
@@ -75,21 +93,6 @@ public class UpdateBase64ImageTest extends BaseTest {
             e.printStackTrace();
         }
         return byteArray;
-    }
-
-    static private String getImageDeleteHash() {
-        imageDeleteHash = given()
-                .headers("Authorization", token)
-                .multiPart("image", encodedFile)
-                .when()
-                .post("https://api.imgur.com/3/image")
-                .prettyPeek()
-                .then()
-                .extract()
-                .response()
-                .jsonPath()
-                .getString("data.id");
-        return imageDeleteHash;
     }
 }
 

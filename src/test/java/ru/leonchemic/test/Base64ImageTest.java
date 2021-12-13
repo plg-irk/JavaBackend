@@ -1,7 +1,11 @@
 package ru.leonchemic.test;
 
+import io.restassured.builder.MultiPartSpecBuilder;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.response.Response;
+import io.restassured.specification.MultiPartSpecification;
+import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -11,46 +15,46 @@ import java.util.Base64;
 import org.apache.commons.io.FileUtils;
 
 import static io.restassured.RestAssured.given;
+import static ru.leonchemic.test.Endpoints.*;
 
 
 public class Base64ImageTest extends BaseTest {
     private final String PATH_TO_FILE = "src/test/resources/main-1920x1080.jpg";
-    String imageDeleteHash;
+    String imageID;
     static String encodedFile;
 
-    @BeforeEach
-    void beforeTest() {
-        byte[] byteArray = getFileContent();
-        encodedFile = Base64.getEncoder().encodeToString(byteArray);
-        imageDeleteHash = getImageDeleteHash();
-    }
+    MultiPartSpecification fileImage;
+    RequestSpecification requestSpecificationWithFile;
+    Response response;
 
     @Test
-    void getBase64ImageFileTest() {
-        imageDeleteHash = given()
-                .headers("Authorization", token)
-                .multiPart("image", encodedFile)
-                .log()
-                .method()
-                .log()
-                .uri()
-                .when()
-                .post("https://api.imgur.com/3/image")
+    void uploadFileTest() {
+        byte[] byteArray = getFileContent();
+        encodedFile = Base64.getEncoder().encodeToString(byteArray);
+
+        fileImage = new MultiPartSpecBuilder(encodedFile)
+                .controlName("image")
+                .build();
+
+        requestSpecificationWithFile = new RequestSpecBuilder()
+                .addHeader("Authorization", token)
+                .addMultiPart(fileImage)
+                .build();
+
+        response = given(requestSpecificationWithFile, positiveResponseSpecification)
+                .post(UPLOAD_IMAGE)
                 .prettyPeek()
                 .then()
                 .extract()
-                .response()
-                .jsonPath()
-                .getString("data.id");
+                .response();
+
+        imageID = response.jsonPath().getString("data.id");
     }
 
     @AfterEach
-    void tearDown() {
-        given()
-                .headers("Authorization", token)
-                .when()
-                .delete("https://api.imgur.com/3/account/{username}/image/{id}",
-                        username, imageDeleteHash)
+    void teardown() {
+        given(requestSpecificationWithAuth, positiveResponseSpecification)
+                .delete(GET_ACCOUNT + UPLOAD_IMAGE_ID, username, imageID)
                 .prettyPeek()
                 .then()
                 .statusCode(200);
@@ -64,21 +68,6 @@ public class Base64ImageTest extends BaseTest {
             e.printStackTrace();
         }
         return byteArray;
-    }
-
-    private String getImageDeleteHash() {
-        imageDeleteHash = given()
-                .headers("Authorization", token)
-                .multiPart("image", encodedFile)
-                .when()
-                .post("https://api.imgur.com/3/image")
-                .prettyPeek()
-                .then()
-                .extract()
-                .response()
-                .jsonPath()
-                .getString("data.id");
-        return imageDeleteHash;
     }
 }
 

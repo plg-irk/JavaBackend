@@ -1,46 +1,48 @@
 package ru.leonchemic.test;
 
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.response.Response;
+import io.restassured.specification.MultiPartSpecification;
+import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
 import static io.restassured.RestAssured.given;
+import static ru.leonchemic.test.Endpoints.*;
 
 public class VideoImageTest extends BaseTest {
-    String imageDeleteHash;
+    String imageID;
+    MultiPartSpecification fileImage;
+    RequestSpecification requestSpecificationWithVideo;
+    Response response;
 
     @Test
-    void uploadFileTest() {
-        imageDeleteHash = given()
-                .header("Authorization", token)
-                .multiPart("video", new File(
+    void uploadVideoTest() {
+
+        requestSpecificationWithVideo = new RequestSpecBuilder()
+                .addHeader("Authorization", token)
+                .addMultiPart("video", new File(
                         "src/test/resources/pexels-nadezhda-moryak-6790484.mp4"))
-                .log()
-                .method()
-                .log()
-                .uri()
-                .expect()
-                .statusCode(200)
-                .when()
-                .post("https://api.imgur.com/3/upload")
+                .build();
+
+        response = given(requestSpecificationWithVideo, positiveResponseSpecification)
+                .post(UPLOAD)
                 .prettyPeek()
                 .then()
                 .extract()
-                .response()
-                .jsonPath()
-                .getString("data.id");
+                .response();
+
+        imageID = response.jsonPath().getString("data.id");
     }
 
     @AfterEach
-    void deleteFileTest() {
-        given()
-                .headers("Authorization", token)
-                .when()
-                .delete("https://api.imgur.com/3/account/{username}/image/{id}", username, imageDeleteHash)
+    void deleteVideoTest() {
+        given(requestSpecificationWithAuth, positiveResponseSpecification)
+                .delete(GET_ACCOUNT + UPLOAD_IMAGE_ID, username, imageID)
                 .prettyPeek()
                 .then()
                 .statusCode(200);
     }
-
 }
